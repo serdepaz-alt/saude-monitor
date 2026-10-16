@@ -1,2 +1,2 @@
 [build]
-  SECRETS_SCAN_ENABLED = false
+  environment = { SECRETS_SCAN_ENABLED = "false" }
