@@ -4,7 +4,7 @@ import type { Patient } from '../App';
 
 interface Props { selected: string | null; onSelect: (p: Patient) => void }
 
-const empty = { full_name: '', cpf: '', birth_date: '', phone: '', consent_monitoring: false, consent_whatsapp: false };
+const empty = { full_name: '', cpf: '', birth_date: '', email: '', phone: '', consent_monitoring: false, consent_email: false };
 
 export default function Patients({ selected, onSelect }: Props) {
   const [list, setList] = useState<Patient[]>([]);
@@ -44,11 +44,12 @@ export default function Patients({ selected, onSelect }: Props) {
           <label>Nome completo<input required value={form.full_name} onChange={set('full_name')} /></label>
           <label>CPF<input required inputMode="numeric" value={form.cpf} onChange={set('cpf')} /></label>
           <label>Data de nascimento<input required type="date" value={form.birth_date} onChange={set('birth_date')} /></label>
-          <label>WhatsApp (com DDD)<input required inputMode="tel" value={form.phone} onChange={set('phone')} /></label>
+          <label>E-mail<input required type="email" autoComplete="off" value={form.email} onChange={set('email')} /></label>
+          <label>Telefone (com DDD, opcional)<input inputMode="tel" value={form.phone} onChange={set('phone')} /></label>
           <label className="check"><input type="checkbox" checked={form.consent_monitoring} onChange={set('consent_monitoring')} />
             O paciente autorizou o monitoramento da sua saúde</label>
-          <label className="check"><input type="checkbox" checked={form.consent_whatsapp} onChange={set('consent_whatsapp')} />
-            O paciente autorizou receber resultados por WhatsApp</label>
+          <label className="check"><input type="checkbox" checked={form.consent_email} onChange={set('consent_email')} />
+            O paciente autorizou receber resultados por e-mail</label>
           <button className="primary" disabled={busy}>{busy ? 'Salvando…' : 'Cadastrar paciente'}</button>
         </form>
       )}
