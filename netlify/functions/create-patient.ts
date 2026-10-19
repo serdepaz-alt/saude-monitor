@@ -22,20 +22,27 @@ export default async (req: Request) => {
   if (!b) return json({ error: 'JSON inválido' }, 400);
 
   const cpf = String(b.cpf ?? '').replace(/\D/g, '');
+  const email = String(b.email ?? '').trim().toLowerCase();
+
+  // Telefone agora é opcional (só informativo); o contato é por e-mail.
   let phone = String(b.phone ?? '').replace(/\D/g, '');
-  if (phone.length <= 11) phone = '55' + phone; // assume Brasil
-  phone = '+' + phone;
+  if (phone) {
+    if (phone.length <= 11) phone = '55' + phone; // assume Brasil
+    phone = '+' + phone;
+  }
 
   if (String(b.full_name ?? '').trim().length < 3) return json({ error: 'Informe o nome completo' }, 400);
   if (!validCpf(cpf)) return json({ error: 'CPF inválido' }, 400);
-  if (!/^\+55\d{10,11}$/.test(phone)) return json({ error: 'Telefone inválido. Use DDD + número' }, 400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 254) return json({ error: 'E-mail inválido' }, 400);
+  if (phone && !/^\+55\d{10,11}$/.test(phone)) return json({ error: 'Telefone inválido. Use DDD + número' }, 400);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(b.birth_date ?? '')) return json({ error: 'Data de nascimento inválida' }, 400);
   if (!b.consent_monitoring) return json({ error: 'O consentimento para monitoramento é obrigatório' }, 400);
 
   const { data: p, error } = await identity().from('patients').insert({
     full_name: String(b.full_name).trim(),
     cpf_enc: encrypt(cpf), cpf_hash: blindIndex(cpf),
-    phone_enc: encrypt(phone), phone_hash: blindIndex(phone),
+    email_enc: encrypt(email), email_hash: blindIndex(email),
+    phone_enc: phone ? encrypt(phone) : null, phone_hash: phone ? blindIndex(phone) : null,
     birth_date: b.birth_date,
   }).select('id').single();
 
@@ -45,7 +52,7 @@ export default async (req: Request) => {
   const { data: link, error: e2 } = await identity().from('patient_pseudonym').insert({ patient_id: p.id }).select('pseudo_id').single();
   const evidence = `staff:${staff.id}; termo v1; ${new Date().toISOString()}`;
   const consents = [{ patient_id: p.id, purpose: 'monitoring', evidence }];
-  if (b.consent_whatsapp) consents.push({ patient_id: p.id, purpose: 'whatsapp_contact', evidence });
+  if (b.consent_email) consents.push({ patient_id: p.id, purpose: 'email_contact', evidence });
   const { error: e3 } = await identity().from('consents').insert(consents);
 
   if (e2 || e3 || !link) {

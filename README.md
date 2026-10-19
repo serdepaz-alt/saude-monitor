@@ -1,12 +1,12 @@
 # Monitor de Saúde
 
-Monitoramento de frequência cardíaca, saturação, glicemia e peso, com dados pessoais separados dos registros clínicos e envio individual de resultados por WhatsApp.
+Monitoramento de frequência cardíaca, saturação, glicemia e peso, com dados pessoais separados dos registros clínicos e envio individual de resultados por e-mail.
 
-React + Vite (Netlify) · Netlify Functions · Supabase (Postgres) · WhatsApp Cloud API
+React + Vite (Netlify) · Netlify Functions · Supabase (Postgres) · Resend (e-mail)
 
 ## Como a privacidade funciona
 
-- `identity.*`: nome, CPF e telefone. CPF e telefone são **cifrados na aplicação (AES-256-GCM)**; a chave fica só nas variáveis do Netlify.
+- `identity.*`: nome, CPF, e-mail e telefone. CPF, e-mail e telefone são **cifrados na aplicação (AES-256-GCM)**; a chave fica só nas variáveis do Netlify.
 - `health.*`: medições e interpretações referenciam apenas `pseudo_id`. Nada identifica a pessoa.
 - Só as functions (com `service_role`) cruzam `pseudo_id → paciente`, e cada acesso vai para `messaging.audit_log`.
 - O navegador (chave `anon`) só lê `health.*`, e apenas se o usuário estiver em `public.staff`.
@@ -15,7 +15,7 @@ React + Vite (Netlify) · Netlify Functions · Supabase (Postgres) · WhatsApp C
 
 ### 1. Supabase
 1. Crie o projeto (região `South America (São Paulo)`).
-2. Rode `supabase/migrations/0001_init.sql` no SQL Editor (ou use o workflow `db-migrate`).
+2. Rode `supabase/migrations/0001_init.sql` e depois `supabase/migrations/0002_email_contact.sql` no SQL Editor (ou use o workflow `db-migrate`).
 3. **Project Settings → API → Exposed schemas**: adicione `health`, `identity` e `messaging`.
 4. Crie um usuário em *Authentication → Users* e libere o acesso:
    ```sql
@@ -26,20 +26,15 @@ React + Vite (Netlify) · Netlify Functions · Supabase (Postgres) · WhatsApp C
 ```bash
 openssl rand -base64 32   # DATA_ENC_KEY
 openssl rand -base64 32   # HASH_KEY
-openssl rand -hex 24      # INGEST_API_KEY e WA_VERIFY_TOKEN
+openssl rand -hex 24      # INGEST_API_KEY
 ```
-**Guarde `DATA_ENC_KEY` em um cofre.** Sem ela, CPF e telefone não podem ser recuperados.
+**Guarde `DATA_ENC_KEY` em um cofre.** Sem ela, CPF, e-mail e telefone não podem ser recuperados.
 
-### 3. WhatsApp (Meta for Developers)
-1. Crie um app *Business* e ative *WhatsApp*. Anote `WA_PHONE_ID`, `WA_TOKEN` (use token permanente de usuário do sistema) e `WA_APP_SECRET`.
-2. Cadastre o template **`resultado_medicao`** (categoria *Utility*, idioma `pt_BR`):
-   ```
-   Olá, {{1}}! Sua medição de {{2}} em {{3}} foi {{4}}.
-   {{5}}
-   Detalhes: {{6}}
-   Em caso de emergência, ligue 192.
-   ```
-3. Webhook: `https://SEU-SITE.netlify.app/.netlify/functions/whatsapp-webhook`, com o `WA_VERIFY_TOKEN`; assine o campo `messages`.
+### 3. E-mail (Resend)
+1. Crie uma conta em https://resend.com e gere uma API key em *API Keys*. Ela é o `RESEND_API_KEY`.
+2. Para testes, use `EMAIL_FROM=Monitor de Saúde <onboarding@resend.dev>` (o Resend só entrega, nesse modo, para o e-mail da sua própria conta).
+3. Para produção, em *Domains* adicione e verifique seu domínio (registros DNS) e use um remetente desse domínio, por exemplo `Monitor de Saúde <alertas@seudominio.com.br>`.
+4. O texto do e-mail fica em `buildEmail()` em `netlify/functions/_lib/send.ts`. Não há template para aprovar, como havia no WhatsApp.
 
 ### 4. GitHub e Netlify
 ```bash
@@ -83,7 +78,7 @@ on conflict (pseudo_id, type, context) do update
 - **Revisão clínica** de todos os limites e textos (`shared/interpret.ts`). Os valores atuais são exemplos.
 - **LGPD**: base legal para dados de saúde, RIPD, encarregado (DPO), política de retenção e fluxo de exclusão.
 - **MFA** para a equipe (Supabase Auth) e perfis de acesso revisados.
-- Fallback (SMS/ligação) para alertas urgentes com falha de entrega (veja `messaging.outbox.status = 'failed'`).
+- Fallback (SMS/ligação) para alertas urgentes com falha de entrega (veja `messaging.outbox.status = 'failed'`). E-mail pode cair em spam ou não ser lido a tempo: avalie um segundo canal para alertas urgentes.
 - Backups cifrados e plano de rotação de chaves.
 
 ## Próximos passos sugeridos

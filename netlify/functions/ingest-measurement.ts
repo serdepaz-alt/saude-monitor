@@ -72,7 +72,7 @@ export default async (req: Request) => {
   if (result.severity !== 'normal') {
     const { data: job } = await messaging().from('outbox').insert({
       pseudo_id: b.pseudo_id,
-      template_name: process.env.WA_TEMPLATE_NAME || 'resultado_medicao',
+      template_name: 'resultado_medicao_email',
       variables: {
         measurement: `${LABELS[type]} (${value} ${UNITS[type]})`,
         date: measuredAt.toLocaleString('pt-BR', { timeZone: 'America/Bahia', dateStyle: 'short', timeStyle: 'short' }),
